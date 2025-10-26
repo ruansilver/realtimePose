@@ -1,135 +1,107 @@
-# 实时sEMG姿态预测系统配置文件
-# 基于原始VEMG2Pose模型的实时版本
-
-# 预训练模型检查点路径
-# checkpoint_path: refer/referCheckpoint/regression_vemg2pose.ckpt  # 可选：预训练权重路径
-checkpoint_path: ""  # 设置为空字符串以跳过预训练权重加载
+# 实时EMG姿态预测系统配置文件
+# 基于 refer/referConfig/regression_model.yaml 严格对齐
 
 # 数据配置
 data:
-  dataset_path: "D:/Dataset/emg2pose_dataset_mini"
+  dataset_root: D:/Dataset/emg2pose_dataset_mini
   batch_size: 16
   num_workers: 2
-  padding: [0, 0]
   window_length: 10000
   val_test_window_length: 10000
+  padding: [0, 0]
+  skip_ik_failures: false
 
-# 模型配置（基于现有VEMG2PoseWithInitialState）
+# 模型配置
 model:
-  type: "RealtimePoseModel"
-  num_position_steps: 500
-  provide_initial_pos: false
-  state_condition: true
-  
-  # 编码器网络配置（基于现有TdsNetwork）
-  encoder:
-    type: "TdsNetwork"
+  # Encoder: TdsNetwork
+  network:
+    type: TdsNetwork
     conv_blocks:
       - in_channels: 16
-        kernel_size: 11
         out_channels: 256
+        kernel_size: 11
         stride: 5
       - in_channels: 256
-        kernel_size: 5
         out_channels: 256
+        kernel_size: 5
         stride: 2
     tds_stages:
-      - channels: 16
-        feature_width: 16
-        in_channels: 256
+      - in_channels: 256
         in_conv_kernel_width: 17
         in_conv_stride: 4
-        kernel_width: 9
         num_blocks: 2
-      - channels: 16
+        channels: 16
         feature_width: 16
-        in_channels: 256
+        kernel_width: 9
+      - in_channels: 256
         in_conv_kernel_width: 9
         in_conv_stride: 2
-        kernel_width: 5
         num_blocks: 2
+        channels: 16
+        feature_width: 16
+        kernel_width: 5
         out_channels: 64
   
-  # 解码器配置（基于现有SequentialLSTM）
+  # Decoder: SequentialLSTM
   decoder:
-    type: "SequentialLSTM"
-    in_channels: 84  # 64 (encoder) + 20 (state)
+    type: SequentialLSTM
+    in_channels: 84  # 64 (features) + 20 (state)
+    out_channels: 40  # 20 (pos) + 20 (vel)
     hidden_size: 512
     num_layers: 2
-    out_channels: 40  # 20 (position) + 20 (velocity)
     scale: 0.01
+  
+  # Head: VEMG2PoseWithInitialState
+  type: VEMG2PoseWithInitialState
+  num_position_steps: 500
+  state_condition: true
+  rollout_freq: 50
+  provide_initial_pos: false
 
-# 实时预测配置
-realtime:
-  fast_window_size: 1.0  # 秒，Fast Path窗口大小
-  correction_window_size: 4.0  # 秒，Correction Path窗口大小
-  max_latency: 500  # 毫秒，最大允许延迟
-  correction_frequency: 10  # 每N个预测执行一次校正
-  fusion_weight: 0.7  # Fast Path权重，Correction Path权重为1-fusion_weight
-  sample_rate: 2000  # sEMG采样率，Hz
-  rollout_freq: 50  # 预测输出频率，Hz
+# 训练配置（第一阶段默认关闭）
+train:
+  enabled: false
+  learning_rate: 0.001
+  loss_weights:
+    mae: 1
+    fingertip_distance: 0.01
+  max_epochs: 100
+  early_stopping_patience: 10
 
-# 缓冲区配置
-buffers:
-  raw_data:
-    size: 10000  # 样本数（约5秒@2kHz，支持4秒Correction窗口）
-    type: "circular"
-  feature:
-    size: 50   # 特征数（约1秒@50Hz）
-    type: "circular"
-
-# 在线学习配置
-online_learning:
-  enabled: true
-  learning_rates:
-    encoder: 0.000001    # 编码器学习率（较小，保持稳定）
-    decoder: 0.0001      # 解码器学习率（较大，快速适应）
-  trigger_conditions:
-    error_threshold: 0.1    # MSE阈值（降低以更容易触发学习）
-    data_count: 50          # 新样本数量阈值（降低以更频繁学习）
-    time_interval: 60       # 时间间隔阈值（秒，更频繁的定期学习）
-    trigger_logic: "any"    # "any": 任一条件满足即触发，"all": 全部条件满足才触发
-  batch_size: 32
-  max_grad_norm: 1.0  # 梯度裁剪
-
-# 数据流模拟配置
-simulation:
-  packet_interval: 0.1  # 固定时间间隔（秒）
-  packet_size:
-    min: 10    # 最小包大小（样本数）
-    max: 100   # 最大包大小（样本数）
-  random_seed: 42  # 随机种子，确保可复现
-
-# 检查点配置
-checkpoint:
-  save_interval: 600  # 秒
-  save_dir: "./checkpoints"
-  keep_last_n: 5  # 保留最近N个检查点
+# 运行时配置
+runtime:
+  device: cuda  # cuda/cpu
+  seed: 42
+  buffer:
+    max_samples: 10000
 
 # 日志配置
 logging:
-  level: "INFO"
-  tensorboard_dir: "./logs"
-  log_interval: 10  # 每N次预测记录一次日志
-  metrics:
-    - "prediction_latency"
-    - "buffer_utilization"
-    - "learning_trigger_count"
-    - "prediction_error"
-
-# 评估配置
-evaluation:
-  metrics:
-    - "angle_mae"
-    - "angle_mse"
-    - "angular_derivatives"
-    - "per_finger_angle_mae"
-    - "pd_angle_mae"
-  output_format: "json"
+  log_dir: ./logs
+  tensorboard:
+    enabled: true
   save_predictions: false
 
-# 训练配置（用于在线学习）
-training:
-  loss_weights:
-    mae: 1.0
-    fingertip_distance: 0.01
+# 在线学习配置（占位，第一阶段不实现）
+online_learning:
+  enabled: false
+  learning_rate: 0.0001
+  update_frequency: 100
+
+# 评估配置
+eval:
+  alignment_check: true
+  metrics:
+    - angle_mae
+    - angle_mse
+  output_format: json
+
+# 参考权重路径
+reference_checkpoint: refer/referCheckpoint/regression_vemg2pose.ckpt
+
+# 常量
+constants:
+  emg_sample_rate: 2000
+  num_joints: 20
+  num_emg_channels: 16
+
