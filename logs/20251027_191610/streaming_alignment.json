@@ -1,0 +1,11 @@
+{
+  "passed": false,
+  "mse": 0.0017101586563512683,
+  "max_diff": 0.2587548792362213,
+  "mean_diff": 0.02438843809068203,
+  "mse_threshold": 1e-05,
+  "max_diff_threshold": 5e-05,
+  "aligned_pairs_count": 203,
+  "exact_predictions_count": 8210,
+  "streaming_predictions_count": 203
+}

@@ -1,0 +1,30 @@
+{
+  "experiment_info": {
+    "mode": "streaming",
+    "timestamp": "20251027_191500",
+    "device": "cpu"
+  },
+  "configuration": {
+    "streaming_enabled": true,
+    "step_ms": 20,
+    "warmup_samples": 1790
+  },
+  "results": {
+    "alignment_test": {
+      "passed": false,
+      "mse": 0.004703186918050051,
+      "max_diff": 0.4571264982223511,
+      "mean_diff": 0.03887259215116501,
+      "mse_threshold": 1e-05,
+      "max_diff_threshold": 5e-05,
+      "aligned_pairs_count": 201,
+      "exact_predictions_count": 8210,
+      "streaming_predictions_count": 201
+    },
+    "streaming_available": true
+  },
+  "validation": {
+    "passed": false,
+    "streaming_tolerance_met": false
+  }
+}

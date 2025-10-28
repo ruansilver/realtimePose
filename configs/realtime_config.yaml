@@ -13,6 +13,8 @@ data:
 
 # 模型配置
 model:
+  mode: streaming  # exact | streaming
+  
   # Encoder: TdsNetwork
   network:
     type: TdsNetwork
@@ -74,6 +76,15 @@ runtime:
   seed: 42
   buffer:
     max_samples: 10000
+  streaming:
+    enabled: true
+    step_ms: 20               # 50Hz
+    warmup_samples: 1790      # = left_context
+    window_samples_base: 1830  # 固定对齐基准（=1790+40）
+    step_samples: 40          # 每步样本数
+    window_thicken_factor: 5  # 窗口增厚因子，起始建议值
+    feature_single_point_interpolation: true  # 对特征序列做单点线性插值（n_time=1, align_corners=true）
+    max_buffer_seconds: 10    # 防护上限
 
 # 日志配置
 logging:
@@ -81,6 +92,9 @@ logging:
   tensorboard:
     enabled: true
   save_predictions: false
+  latency:
+    enabled: true
+    percentiles: [50, 95, 99]
 
 # 在线学习配置（占位，第一阶段不实现）
 online_learning:
@@ -91,6 +105,10 @@ online_learning:
 # 评估配置
 eval:
   alignment_check: true
+  streaming_alignment_check: true
+  streaming_tolerance:
+    mse: 1.0e-5
+    max_diff: 5.0e-5
   metrics:
     - angle_mae
     - angle_mse

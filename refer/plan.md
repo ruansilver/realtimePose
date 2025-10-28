@@ -1,5 +1,48 @@
 # 第一阶段实现计划（严格对齐离线 + 新增研发规范）
 
+## 执行摘要（S1 - 严格数值对齐）
+
+- 目标：在线实现与 `refer/` 离线参考完全一致的行为与数值（在严格阈值内逐时刻相等）。
+- 怎么做：2kHz 输入 → 10000 样本整窗、无重叠、每窗前重置 → 编码特征 → 50Hz rollout（前约12–13步位置、之后速度积分）→ 线性插值回有效区间 → 对齐验证。
+- 约束：模型结构/参数/行为必须以 `refer/` 为唯一来源；禁用 Lightning/Hydra；不出现 emg2pose 标识（外部引用除外）。
+- 默认开关：仅预测；main.py 集成对齐验证；训练关闭；指标 angle_mae、angle_mse。
+- 验收阈值：MSE < 1e-6，max|diff| < 1e-5（有效区间逐时刻）。
+
+## 行动清单（S1）
+
+- [ ] 配置 `configs/realtime_config.yaml`（dataset_root、batch_size、window_length=10000、padding=[0,0]）
+- [ ] 按 `refer/` 等价实现 Encoder/Decoder/Head 与超参（含 left_context/right_context）
+- [ ] 确认 left_context=1790、right_context=0 与 50Hz 线性插值一致
+- [ ] 在 main.py 内集成参考 checkpoint 的加载与键映射打印
+- [ ] 跑一次对齐验证（val 首个 batch）：打印 MSE / MaxDiff 与阈值对比
+- [ ] 跑实时模拟（块状输出），记录 MAE/MSE 到 TensorBoard
+- [ ] 记录日志路径与关键输出（权重加载详情、阈值对比结果）
+- [ ] 复盘：列出变更点与所引用的 `refer/` 路径（便于审计对齐性）
+
+## AI 执行合同（S1 给编程AI）
+
+请严格按以下步骤在当前仓库直接实施第一阶段（严格数值对齐），无需额外询问：
+
+1) 配置：
+   - 确认 `configs/realtime_config.yaml`：`data.window_length=10000`、`data.padding=[0,0]`、`eval.alignment_check=true`、`train.enabled=false`、`eval.metrics=[angle_mae, angle_mse]`、`reference_checkpoint=refer/referCheckpoint/regression_vemg2pose.ckpt`。
+
+2) 模型装配：
+   - 依据 `refer/` 等价实现 `TdsNetwork`、`SequentialLSTM`、`VEMG2PoseWithInitialState`；确保 `left_context=1790`、`right_context=0`、`rollout_freq=50`、`num_position_steps=500`、`state_condition=true`、`provide_initial_pos=false`。
+
+3) 对齐验证：
+   - 在 `main.py` 内加载参考 checkpoint（键映射已包含）；取 val 首个 batch 进行逐时刻对齐；
+   - 判定：`MSE < 1e-6` 且 `max|diff| < 1e-5`；将结果打印并（如配置）写入日志目录机读工件。
+
+4) 实时模拟（块状）：
+   - 使用 `InputBuffer` 按 10000 样本整窗触发；每窗输出有效区间并计算 `angle_mae/mse`；记录到 TensorBoard 或机读工件。
+
+5) 约束：
+   - 严禁使用 Lightning/Hydra；最终代码中不出现 `emg2pose` 标识（外部引用除外）。
+   - 一切模型结构/参数/行为以 `refer/` 为唯一来源；涉及拓扑/参数更改必须与 `refer/` 一致并在提交中标注引用路径。
+
+6) 完成判定：
+   - 对齐通过、实时模拟可运行并输出指标、日志/工件齐全。
+
 ## 0. 背景与目标
 
 - 以 `refer/referConfig/regression_model.yaml` 与 `refer/emg2pose/*` 为“黄金标准（离线参考）”，在不引入 Lightning/Hydra 的前提下，构建可配置、模块化的端到端系统，严格复现离线模型的推理与训练行为，用于数值对齐与研究迭代。
@@ -190,6 +233,29 @@ reference_checkpoint: refer/referCheckpoint/regression_vemg2pose.ckpt
 - 窗口边界对齐：严格以样本索引定义边界，避免时间戳累计误差；在日志中输出每窗的起止索引与有效区间长度。
 
 ---
+
+## 常见坑 / FAQ（S1）
+
+- 有效区间为何从 ~0.895s 开始？因为 left_context=1790（2kHz≈0.895s），需裁掉这部分才能与标签对齐。
+- Windows 下为什么 `num_workers=0`？h5py/pickle 在 Windows 多进程下不稳定，main 已做降级提示。
+- checkpoint 键不匹配怎么办？参照 main 的“键映射打印”，在加载函数内做前缀映射。
+- 50Hz 与 2kHz 不对齐？确保线性插值方式一致，且对齐到“裁剪后的有效区间”长度。
+- 指标忽高忽低？确认只在有效区间和有效 mask 上计算（屏蔽 IK 失败/零标签）。
+
+## 提交说明模板（要求溯源 refer/）
+
+```
+变更摘要：
+- [组件/文件]：简要说明改动点与动机
+
+refer/ 溯源：
+- 参考文件与位置：refer/emg2pose/...（行号/段落）
+- 同步内容：结构/参数/行为（列出关键字段）
+
+验证：
+- S1 对齐结果（MSE/MaxDiff）
+- 日志与关键截图/曲线（TensorBoard 路径）
+```
 
 附：命令行覆写建议（示例）
 

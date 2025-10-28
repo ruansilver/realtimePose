@@ -1,0 +1,103 @@
+constants:
+  emg_sample_rate: 2000
+  num_emg_channels: 16
+  num_joints: 20
+data:
+  batch_size: 16
+  dataset_root: D:/Dataset/emg2pose_dataset_mini
+  num_workers: 2
+  padding:
+  - 0
+  - 0
+  skip_ik_failures: false
+  val_test_window_length: 10000
+  window_length: 10000
+eval:
+  alignment_check: true
+  metrics:
+  - angle_mae
+  - angle_mse
+  output_format: json
+  streaming_alignment_check: true
+  streaming_tolerance:
+    max_diff: 5.0e-05
+    mse: 1.0e-05
+logging:
+  latency:
+    enabled: true
+    percentiles:
+    - 50
+    - 95
+    - 99
+  log_dir: ./logs
+  save_predictions: false
+  tensorboard:
+    enabled: true
+model:
+  decoder:
+    hidden_size: 512
+    in_channels: 84
+    num_layers: 2
+    out_channels: 40
+    scale: 0.01
+    type: SequentialLSTM
+  mode: streaming
+  network:
+    conv_blocks:
+    - in_channels: 16
+      kernel_size: 11
+      out_channels: 256
+      stride: 5
+    - in_channels: 256
+      kernel_size: 5
+      out_channels: 256
+      stride: 2
+    tds_stages:
+    - channels: 16
+      feature_width: 16
+      in_channels: 256
+      in_conv_kernel_width: 17
+      in_conv_stride: 4
+      kernel_width: 9
+      num_blocks: 2
+    - channels: 16
+      feature_width: 16
+      in_channels: 256
+      in_conv_kernel_width: 9
+      in_conv_stride: 2
+      kernel_width: 5
+      num_blocks: 2
+      out_channels: 64
+    type: TdsNetwork
+  num_position_steps: 500
+  provide_initial_pos: false
+  rollout_freq: 50
+  state_condition: true
+  type: VEMG2PoseWithInitialState
+online_learning:
+  enabled: false
+  learning_rate: 0.0001
+  update_frequency: 100
+reference_checkpoint: refer/referCheckpoint/regression_vemg2pose.ckpt
+runtime:
+  buffer:
+    max_samples: 10000
+  device: cuda
+  seed: 42
+  streaming:
+    enabled: true
+    feature_single_point_interpolation: true
+    max_buffer_seconds: 10
+    step_ms: 20
+    step_samples: 40
+    warmup_samples: 1790
+    window_samples_base: 1830
+    window_thicken_factor: 5
+train:
+  early_stopping_patience: 10
+  enabled: false
+  learning_rate: 0.001
+  loss_weights:
+    fingertip_distance: 0.01
+    mae: 1
+  max_epochs: 100

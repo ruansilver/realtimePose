@@ -1,0 +1,20 @@
+{
+  "passed": false,
+  "mse": 0.0005378666101023555,
+  "max_diff": 0.1337977647781372,
+  "mean_diff": 0.014920264482498169,
+  "mse_threshold": 1e-05,
+  "max_diff_threshold": 5e-05,
+  "aligned_pairs_count": 206,
+  "exact_predictions_count": 8210,
+  "streaming_predictions_count": 206,
+  "step_a_diagnostic": {
+    "passed": false,
+    "mse": 3.767303358159779e-09,
+    "max_diff": 0.0004988908767700195,
+    "mse_threshold": 1e-05,
+    "max_diff_threshold": 5e-05,
+    "T_rollout": 205,
+    "rollout_position_steps": 12
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "architecture": {
+    "encoder": "TdsNetwork",
+    "decoder": "SequentialLSTM",
+    "mode": "streaming"
+  },
+  "parameters": {
+    "rollout_freq": 50,
+    "num_position_steps": 500,
+    "state_condition": true
+  },
+  "streaming_config": {
+    "enabled": true,
+    "step_ms": 20,
+    "warmup_samples": 1790,
+    "window_samples_base": 1830,
+    "step_samples": 40,
+    "window_thicken_factor": 3,
+    "feature_single_point_interpolation": true,
+    "max_buffer_seconds": 10
+  }
+}
